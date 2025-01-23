@@ -18,6 +18,9 @@ exports.createGroup = async (req, res) => {
     group.generateJoinCode(); // Generate initial join code
     await group.save();
 
+    // Add group ID to user's groups array
+    await User.findByIdAndUpdate(userId, { $push: { groups: group._id } });
+
     res.status(201).json({ message: 'Group created successfully', group });
   } catch (error) {
     res.status(500).json({ message: 'Error creating group', error });
@@ -49,11 +52,31 @@ exports.joinGroup = async (req, res) => {
     group.members.push({ user: userId, role: 'Member' });
     await group.save();
 
+    // Add group ID to user's groups array
+    await User.findByIdAndUpdate(userId, { $push: { groups: group._id } });
+
     res.status(200).json({ message: 'Joined group successfully', group });
   } catch (error) {
     res.status(500).json({ message: 'Error joining group', error });
   }
 };
+
+
+exports.getUserGroups = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const user = await User.findById(userId).populate('groups');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ groups: user.groups });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user groups', error });
+  }
+};
+
 
 // Fetch Groups for a User
 exports.fetchGroups = async (req, res) => {

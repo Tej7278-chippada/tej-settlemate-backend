@@ -10,11 +10,14 @@ const groupSchema = new mongoose.Schema({
     {
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       role: { type: String, enum: ['Admin', 'Member'], default: 'Member' },
+      joined_at: { type: Date, default: Date.now },
     },
   ],
   joinCode: { type: String, unique: true },
   joinCodeExpiry: { type: Date },
-});
+}, 
+  { timestamps: true }
+);
 
 groupSchema.methods.generateJoinCode = function () {
   const code = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-character alphanumeric code

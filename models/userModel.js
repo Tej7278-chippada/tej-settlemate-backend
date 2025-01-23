@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   profilePic: { type: Buffer }, // Stores image data as Buffer
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
+  groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }], // Array of group IDs
   otp: { type: Number },
   otpExpiry: { type: Date }
 });
