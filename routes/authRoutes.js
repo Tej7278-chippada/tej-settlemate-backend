@@ -8,7 +8,9 @@ const router = express.Router();
 const { searchUsernames, requestOtp, resetPassword } = require('../controllers/userController');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
-
+const multer = require('multer');
+const sharp = require('sharp');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // Set up Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -23,8 +25,14 @@ const transporter = nodemailer.createTransport({
 const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 
 
+// Initialize multer with memory storage
+const upload = multer({
+  limits: { fileSize: 2 * 1024 * 1024 }, // Limit file size to 2MB
+  storage: multer.memoryStorage(),
+});
+
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', upload.single('profilePic'), async (req, res) => {
   const { username, password, phone, email } = req.body;
 
   // Username and password validation
@@ -39,8 +47,15 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ message: 'Invalid password format.' });
   }
 
+  if (!email.includes('@') || !email.endsWith('.com')) {
+    return res.status(400).json({ message: 'Invalid mail id.' });
+  }
+
+  if (phone.length < 10 || !/^\d+$/.test(phone)) {
+    return res.status(400).json({ message: 'Invalid mobile number.' });
+  }
+
   try {
-    // Check if username or email already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
       if (existingUser.username === username) {
@@ -51,9 +66,26 @@ router.post('/register', async (req, res) => {
       }
     }
 
+    // Process the uploaded profile picture
+    let profilePicBuffer = null;
+    if (req.file) {
+      profilePicBuffer = await sharp(req.file.buffer)
+        .resize({ width: 300, height: 300 })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+    }
+
     // Create and save the new user
-    const newUser = new User({ username, password, phone, email});
+    const newUser = new User({ username, password, phone, email, profilePic: profilePicBuffer,});
     await newUser.save();
+
+    // Send email notification
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Welcome to SettleMate',
+      text: `Your SettleMate account has username of ${username} created successfully, and binded with this mail id ${email}.`,
+    });
 
     console.log('Registered user:', newUser); // Log the newly saved user
     res.status(201).json({ message: `Your new account created with username: ${newUser.username} and ${newUser.email}` });
@@ -89,7 +121,7 @@ router.post('/login', async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     });
     console.log('Login successful:', user); // Log successful login
-
+    console.log('Login successful:', authToken);
     
 
     // Respond with success message, token, and username
@@ -97,10 +129,35 @@ router.post('/login', async (req, res) => {
       message: `You are logged in with ${identifier.includes('@') ? 'email' : 'username'}: ${identifier}`,
       authToken,
       tokenUsername: user.username,
+      userId: user._id, // for returning user details
     });
   } catch (error) {
     console.error('Error logging in:', error);
     return res.status(500).json({ message: 'Login failed', error });
+  }
+});
+
+// Refresh Token Route
+router.post('/refresh-token', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(403).json({ message: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'defaultSecretKey');
+    // Issue a new token with a refreshed expiry time
+    const newToken = jwt.sign(
+      { id: decoded.id, tokenUsername: decoded.tokenUsername },
+      process.env.JWT_SECRET || 'defaultSecretKey',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }// New 1-hour expiry
+    );
+
+    return res.status(200).json({ authToken: newToken });
+    // console.log('authToken refreshed..!:', newToken);
+  } catch (err) {
+    return res.status(401).json({ message: 'Refresh token failed. Token expired or invalid.' });
+    // console.log('Refresh token failed. Token expired or invalid.');
   }
 });
 
@@ -217,6 +274,47 @@ router.post('/reset-password', async (req, res) => {
     res.json({ message: 'Password reset successful' });
   } catch (error) {
     res.status(500).json({ message: 'Error resetting password', error });
+  }
+});
+
+// Route to get user profile
+router.get('/:userId', authMiddleware, async (req, res) => {
+  const { userId } = req.params;
+
+  if (req.user.id !== userId) return res.status(403).json({ message: 'Unauthorized access' });
+
+  try {
+    const user = await User.findById(userId).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    // Convert profilePic to Base64 string if it exists
+    const userData = user.toObject();
+    if (user.profilePic) {
+      userData.profilePic = user.profilePic.toString('base64');
+    }
+
+    res.json(userData);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Route to delete user account
+router.delete('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+
+  if (req.user.id !== id) return res.status(403).json({ message: 'Unauthorized access' });
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Seller not found' });
+    }
+    // await Product.deleteMany({ userId: req.user.id }); // Delete all products added by the seller
+    await User.findByIdAndDelete(req.user.id);
+    res.status(200).json({ message: 'User account deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting seller account:', error);
+    res.status(500).json({ message: 'Failed to delete seller account.' });
   }
 });
 
