@@ -57,6 +57,47 @@ router.post('/create', upload.single('groupPic'), authMiddleware,  async (req, r
     }
   });
 
+// Delete Group by Admin
+router.delete('/:groupId', authMiddleware, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    if (group.createdBy.toString() !== req.user.id)
+      return res.status(403).json({ message: 'Only the group admin can delete the group' });
+
+    // Remove the groupId from all users' `groups` arrays
+    await User.updateMany(
+      { groups: req.params.groupId },
+      { $pull: { groups: req.params.groupId } }
+    );
+
+    // Delete the group
+    await Group.findByIdAndDelete(req.params.groupId);
+    res.status(200).json({ message: 'Group deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete the group', error });
+  }
+});
+
+// Exit Group by member
+router.post('/:groupId/exit', authMiddleware, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    // Remove the user from the group's members array
+    group.members = group.members.filter((member) => member.user.toString() !== req.user.id);
+    await group.save();
+
+    // Remove the groupId from the user's groups array
+    await User.findByIdAndUpdate(req.user.id, { $pull: { groups: req.params.groupId } });
+
+    res.status(200).json({ message: 'You have left the group' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to leave the group', error });
+  }
+});
 
 
 module.exports = router;
