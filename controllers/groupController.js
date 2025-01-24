@@ -83,8 +83,13 @@ exports.fetchGroups = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const groups = await Group.find({ 'members.user': userId }).populate('members.user',);
-    res.status(200).json(groups);
+    const groups = await Group.find({ 'members.user': userId }).populate('members.user',); // 'username'
+    // Convert each product's media buffer to base64
+    const groupsData = groups.map((group) => ({
+      ...group._doc,
+      groupPic: group.groupPic ? group.groupPic.toString('base64') : null, // Convert buffer to Base64
+    }));
+    res.status(200).json({groups: groupsData});
   } catch (error) {
     res.status(500).json({ message: 'Error fetching groups', error });
   }
