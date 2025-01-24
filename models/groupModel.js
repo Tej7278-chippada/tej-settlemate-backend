@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const groupSchema = new mongoose.Schema({
   groupName: { type: String, required: true },
-  groupPicture: { type: String }, // Stores the image as a URL or base64 string
+  groupPic: { type: Buffer }, // Stores the image as a URL or base64 string
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   members: [
     {

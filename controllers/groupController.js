@@ -83,7 +83,7 @@ exports.fetchGroups = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const groups = await Group.find({ 'members.user': userId }).populate('members.user', 'username');
+    const groups = await Group.find({ 'members.user': userId }).populate('members.user',);
     res.status(200).json(groups);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching groups', error });
@@ -94,13 +94,20 @@ exports.fetchGroups = async (req, res) => {
 exports.fetchGroupDetails = async (req, res) => {
   const { groupId } = req.params;
 
+  // if (req.group.id !== groupId) return res.status(403).json({ message: 'Unauthorized access' });
+
   try {
-    const group = await Group.findById(groupId).populate('members.user', 'username');
+    const group = await Group.findById(groupId).populate('members.user', ); // 'username'
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
     }
 
-    res.status(200).json(group);
+    const groupData = group.toObject();
+    if (group.groupPic) {
+      groupData.groupPic = group.groupPic.toString('base64');
+    }
+
+    res.status(200).json(groupData);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching group details', error });
   }
