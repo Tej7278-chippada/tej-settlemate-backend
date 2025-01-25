@@ -69,6 +69,15 @@ router.get('/:groupId', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
 
+    const userId = req.user.id;
+    const isMember = group.members.some(
+      (member) => member.user._id.toString() === userId
+    );
+
+    if (!isMember) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
     const groupData = group.toObject();
     if (group.groupPic) {
       groupData.groupPic = group.groupPic.toString('base64');
