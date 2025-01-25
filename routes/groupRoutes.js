@@ -14,7 +14,7 @@ const sharp = require('sharp');
 router.post('/join', authMiddleware, joinGroup);
 router.get('/user-groups', authMiddleware, getUserGroups);
 router.get('/', authMiddleware, fetchGroups);
-router.get('/:groupId', authMiddleware, fetchGroupDetails);
+// router.get('/:groupId', authMiddleware, fetchGroupDetails);
 router.post('/:groupId/generate-code', authMiddleware, generateJoinCode);
 
 
@@ -56,6 +56,29 @@ router.post('/create', upload.single('groupPic'), authMiddleware,  async (req, r
       res.status(500).json({ message: 'Error creating group', error });
     }
   });
+
+// Fetch Group Details
+router.get('/:groupId', authMiddleware, async (req, res) => {
+  const { groupId } = req.params;
+
+  // if (req.group.id !== groupId) return res.status(403).json({ message: 'Unauthorized access' });
+
+  try {
+    const group = await Group.findById(groupId).populate('members.user', ); // 'username'
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const groupData = group.toObject();
+    if (group.groupPic) {
+      groupData.groupPic = group.groupPic.toString('base64');
+    }
+
+    res.status(200).json(groupData);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching group details', error });
+  }
+});
 
 // Delete Group by Admin
 router.delete('/:groupId', authMiddleware, async (req, res) => {
