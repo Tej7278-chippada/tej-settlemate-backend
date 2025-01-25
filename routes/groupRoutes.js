@@ -80,6 +80,34 @@ router.delete('/:groupId', authMiddleware, async (req, res) => {
   }
 });
 
+// Remove Member from Group
+router.post('/:groupId/remove-member', authMiddleware, async (req, res) => {
+  const { memberId } = req.body;
+
+  try {
+    const group = await Group.findById(req.params.groupId);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    // Check if the requesting user is an Admin
+    const requestingUser = group.members.find(
+      (member) => member.user.toString() === req.user.id && member.role === 'Admin'
+    );
+    if (!requestingUser) return res.status(403).json({ message: 'Only Admins can remove members.' });
+
+    // Remove the member
+    group.members = group.members.filter((member) => member.user.toString() !== memberId);
+    await group.save();
+
+    // Update the user's groups array
+    await User.findByIdAndUpdate(memberId, { $pull: { groups: req.params.groupId } });
+
+    res.status(200).json({ message: 'Member removed successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to remove member.', error });
+  }
+});
+
+
 // Exit Group by member
 router.post('/:groupId/exit', authMiddleware, async (req, res) => {
   try {
