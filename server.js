@@ -3,6 +3,7 @@ const express = require('express');
 require('dotenv').config(); // Load .env variables
 const authRoutes = require('./routes/authRoutes');
 const groupRoutes = require('./routes/groupRoutes');
+const groupTransactionRoutes = require('./routes/groupTransactionRoutes');
 
 const cors = require('cors');
 const connectDB = require('./config/db');
@@ -21,6 +22,7 @@ app.use(cors());
 // Define routes
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/group-transactions', groupTransactionRoutes);
 
 // Define your route to serve images by ID
 app.get('/:id', async (req, res) => {

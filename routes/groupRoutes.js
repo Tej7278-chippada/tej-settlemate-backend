@@ -171,7 +171,7 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
 
-    const transaction = {
+    const newTransaction = {
       amount,
       description,
       paidBy,
@@ -181,15 +181,41 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
     };
 
     group.transactions = group.transactions || [];
-    group.transactions.push(transaction);
+    group.transactions.push(newTransaction);
 
     await group.save();
 
-    res.status(201).json({ message: 'Transaction added successfully', transaction });
+    res.status(201).json({ message: 'Transaction added successfully', newTransaction });
   } catch (error) {
     res.status(500).json({ message: 'Error adding transaction', error });
   }
 });
 
+// router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
+//   const { groupId } = req.params;
+//   const { amount, description, paidBy, splitsTo, transPerson } = req.body;
+
+//   try {
+//     const group = await Group.findById(groupId);
+//     if (!group) return res.status(404).json({ message: 'Group not found' });
+
+//     const newTransaction = {
+//       amount,
+//       description,
+//       paidBy,
+//       splitsTo,
+//       transPerson,
+//       createdAt: new Date(),
+//     };
+
+//     group.transactions = group.transactions || [];
+//     group.transactions.push(newTransaction);
+
+//     await group.save();
+//     res.status(201).json(newTransaction);
+//   } catch (error) {
+//     res.status(500).json({ message: 'Error adding transaction', error });
+//   }
+// });
 
 module.exports = router;
