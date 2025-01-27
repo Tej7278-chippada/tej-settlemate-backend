@@ -15,6 +15,16 @@ const groupSchema = new mongoose.Schema({
   ],
   joinCode: { type: String, unique: true },
   joinCodeExpiry: { type: Date },
+  transactions: [
+    {
+      amount: { type: Number, required: true },
+      description: { type: String },
+      paidBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      splitsTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      transPerson: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      createdAt: { type: Date, default: Date.now },
+    },{ timestamps: true }
+  ],
 }, 
   { timestamps: true }
 );
