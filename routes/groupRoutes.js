@@ -162,7 +162,7 @@ router.post('/:groupId/exit', authMiddleware, async (req, res) => {
 // Route to Add Transactions on Group
 router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
   const { groupId } = req.params;
-  const { amount, description, paidBy, splitsTo, transPerson } = req.body;
+  const { amount, description, paidBy, splitsTo, transPerson, paidAmounts, splitAmounts, updatedMembers } = req.body;
 
   try {
     const group = await Group.findById(groupId);
@@ -171,16 +171,28 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
 
+    // Update member balances by adding to the previous balance
+    updatedMembers.forEach((updatedMember) => {
+      const member = group.members.find((m) => m.user._id.toString() === updatedMember.user._id.toString());
+      if (member) {
+        const previousBalance = member.balance || 0; // Get the previous balance
+        const newBalance = previousBalance + (updatedMember.balance - previousBalance); // Add the difference
+        member.balance = newBalance;
+      }
+    });
+
     const newTransaction = {
       amount,
       description,
       paidBy,
       splitsTo,
       transPerson,
+      paidAmounts,
+      splitAmounts,
       createdAt: new Date(),
     };
 
-    group.transactions = group.transactions || [];
+    group.transactions = group.transactions || [];  
     group.transactions.push(newTransaction);
 
     await group.save();

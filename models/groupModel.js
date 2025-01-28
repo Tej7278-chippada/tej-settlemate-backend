@@ -11,6 +11,7 @@ const groupSchema = new mongoose.Schema({
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       role: { type: String, enum: ['Admin', 'Member'], default: 'Member' },
       joined_at: { type: Date, default: Date.now },
+      balance: { type: Number, default: 0 }, // Balance of the member in this group // Initialize balance to 0
     },
   ],
   joinCode: { type: String, unique: true },
@@ -22,6 +23,8 @@ const groupSchema = new mongoose.Schema({
       paidBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
       splitsTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
       transPerson: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      paidAmounts: { type: Map, of: Number }, // Amounts paid by each member
+      splitAmounts: { type: Map, of: Number }, // Amounts split to each member
       createdAt: { type: Date, default: Date.now },
     },{ timestamps: true }
   ],
