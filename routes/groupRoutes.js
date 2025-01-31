@@ -64,7 +64,11 @@ router.get('/:groupId', authMiddleware, async (req, res) => {
   // if (req.group.id !== groupId) return res.status(403).json({ message: 'Unauthorized access' });
 
   try {
-    const group = await Group.findById(groupId).populate('members.user', ).populate('transactions.transPerson',);; // 'username' // 'username profilePic'
+    const group = await Group.findById(groupId).populate('members.user', )
+    .populate('transactions.transPerson',)
+    .populate('transactions.paidBy',)
+    .populate('transactions.splitsTo', ); // 'username' // 'username profilePic'
+
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
     }
