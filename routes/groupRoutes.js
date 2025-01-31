@@ -64,10 +64,11 @@ router.get('/:groupId', authMiddleware, async (req, res) => {
   // if (req.group.id !== groupId) return res.status(403).json({ message: 'Unauthorized access' });
 
   try {
-    const group = await Group.findById(groupId).populate('members.user', )
-    .populate('transactions.transPerson',)
-    .populate('transactions.paidBy',)
-    .populate('transactions.splitsTo', ); // 'username' // 'username profilePic'
+    const group = await Group.findById(groupId)
+    .populate('members.user', ) // Populate member user details
+    .populate('transactions.transPerson',) // Populate transaction person details
+    .populate('transactions.paidBy',) // Populate paidBy user details
+    .populate('transactions.splitsTo', ); // 'username' // 'username profilePic' // Populate splitsTo user details
 
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
@@ -82,10 +83,23 @@ router.get('/:groupId', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized access' });
     }
 
+    // Convert the group document to a plain object
     const groupData = group.toObject();
+
+    // Convert groupPic to base64 if it exists
     if (group.groupPic) {
       groupData.groupPic = group.groupPic.toString('base64');
     }
+
+    // Ensure paidAmounts and splitAmounts are included in the transactions
+    groupData.transactions = groupData.transactions.map((transaction) => {
+      // Convert Mongoose Map to plain object for paidAmounts and splitAmounts
+      return {
+        ...transaction,
+        paidAmounts: transaction.paidAmounts ? Object.fromEntries(transaction.paidAmounts.entries()) : {},
+        splitAmounts: transaction.splitAmounts ? Object.fromEntries(transaction.splitAmounts.entries()) : {},
+      };
+    });
 
     res.status(200).json(groupData);
   } catch (error) {
@@ -166,7 +180,7 @@ router.post('/:groupId/exit', authMiddleware, async (req, res) => {
 // Route to Add Transactions on Group
 router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
   const { groupId } = req.params;
-  const { amount, description, paidBy, splitsTo, transPerson, paidAmounts, splitAmounts, updatedMembers } = req.body;
+  const { amount, description, paidBy, splitsTo, transPerson, paidAmounts, splitAmounts, paidWay, splitsWay, updatedMembers } = req.body;
 
   try {
     const group = await Group.findById(groupId);
@@ -193,6 +207,8 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
       transPerson,
       paidAmounts,
       splitAmounts,
+      paidWay,
+      splitsWay,
       createdAt: new Date(),
     };
 

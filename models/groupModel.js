@@ -25,6 +25,8 @@ const groupSchema = new mongoose.Schema({
       transPerson: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       paidAmounts: { type: Map, of: Number }, // Amounts paid by each member
       splitAmounts: { type: Map, of: Number }, // Amounts split to each member
+      paidWay: { type: String, enum: ['Equal', 'UnEqual', 'ByPercentage'], default: 'Equal' },
+      splitsWay: { type: String, enum: ['Equal', 'UnEqual', 'ByPercentage'], default: 'Equal' },
       createdAt: { type: Date, default: Date.now },
     },{ timestamps: true }
   ],
