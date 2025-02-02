@@ -217,7 +217,40 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
 
     await group.save();
 
-    res.status(201).json({ message: 'Transaction added successfully', newTransaction });
+    // Populate the transaction data before emitting
+    const populatedTransaction = await Group.populate(group, {
+      path: 'transactions.transPerson transactions.paidBy transactions.splitsTo',
+      // select: 'username profilePic', // Select only the required fields
+    });
+
+    const latestTransaction = populatedTransaction.transactions[populatedTransaction.transactions.length - 1];
+
+    // Convert profilePic to base64 for transPerson, paidBy, and splitsTo
+    // if (latestTransaction.transPerson.profilePic) {
+    //   latestTransaction.transPerson.profilePic = latestTransaction.transPerson.profilePic.toString('base64');
+    // }
+
+    // latestTransaction.paidBy = latestTransaction.paidBy.map(user => {
+    //   if (user.profilePic) {
+    //     user.profilePic = user.profilePic.toString('base64');
+    //   }
+    //   return user;
+    // });
+
+    // latestTransaction.splitsTo = latestTransaction.splitsTo.map(user => {
+    //   if (user.profilePic) {
+    //     user.profilePic = user.profilePic.toString('base64');
+    //   }
+    //   return user;
+    // });
+
+    // Emit a WebSocket event to notify clients about the new transaction
+    const io = req.app.get('io'); // Access the io instance
+    io.to(groupId).emit('newTransaction', latestTransaction);
+    console.log(`Emitted newTransaction to group ${groupId}`); // Debugging
+
+
+    res.status(201).json({ message: 'Transaction added successfully', newTransaction: latestTransaction });
   } catch (error) {
     res.status(500).json({ message: 'Error adding transaction', error });
   }
