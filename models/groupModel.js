@@ -28,6 +28,8 @@ const groupSchema = new mongoose.Schema({
       paidWay: { type: String, enum: ['Equal', 'UnEqual', 'ByPercentage'], default: 'Equal' },
       splitsWay: { type: String, enum: ['Equal', 'UnEqual', 'ByPercentage'], default: 'Equal' },
       createdAt: { type: Date, default: Date.now },
+      deleted: { type: Boolean, default: false }, // Mark if the transaction is deleted
+      deletedBy: { type: String }, // Store the username of the user who deleted the transaction
     },{ timestamps: true }
   ],
 }, 

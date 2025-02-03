@@ -258,6 +258,7 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
 
 router.delete('/:groupId/transactions/:transactionId', authMiddleware, async (req, res) => {
   const { groupId, transactionId } = req.params;
+  const deletedBy = req.user.username; // Get the username of the user who deleted the transaction
 
   try {
     const group = await Group.findById(groupId);
@@ -271,6 +272,10 @@ router.delete('/:groupId/transactions/:transactionId', authMiddleware, async (re
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
+
+    // Mark the transaction as deleted and store the username of the user who deleted it
+    transaction.deleted = true;
+    transaction.deletedBy = deletedBy;
 
     // Update member balances by subtracting the transaction amounts
     transaction.paidBy.forEach((memberId) => {
@@ -287,7 +292,7 @@ router.delete('/:groupId/transactions/:transactionId', authMiddleware, async (re
       }
     });
 
-    group.transactions.pull(transactionId);
+    // group.transactions.pull(transactionId);
     await group.save();
 
     // Emit a WebSocket event to notify clients about the deleted transaction
