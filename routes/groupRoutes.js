@@ -256,5 +256,49 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
   }
 });
 
+router.delete('/:groupId/transactions/:transactionId', authMiddleware, async (req, res) => {
+  const { groupId, transactionId } = req.params;
+
+  try {
+    const group = await Group.findById(groupId);
+
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const transaction = group.transactions.id(transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Update member balances by subtracting the transaction amounts
+    transaction.paidBy.forEach((memberId) => {
+      const member = group.members.find((m) => m.user._id.toString() === memberId.toString());
+      if (member) {
+        member.balance -= transaction.paidAmounts.get(memberId.toString()) || 0;
+      }
+    });
+
+    transaction.splitsTo.forEach((memberId) => {
+      const member = group.members.find((m) => m.user._id.toString() === memberId.toString());
+      if (member) {
+        member.balance += transaction.splitAmounts.get(memberId.toString()) || 0;
+      }
+    });
+
+    group.transactions.pull(transactionId);
+    await group.save();
+
+    // Emit a WebSocket event to notify clients about the deleted transaction
+    const io = req.app.get('io');
+    io.to(groupId).emit('transactionDeleted', { transactionId, deletedBy: req.user.username });
+
+    res.status(200).json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting transaction', error });
+  }
+});
+
 
 module.exports = router;
