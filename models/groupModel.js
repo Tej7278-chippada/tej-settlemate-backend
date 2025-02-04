@@ -30,6 +30,13 @@ const groupSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
       deleted: { type: Boolean, default: false }, // Mark if the transaction is deleted
       deletedBy: { type: String }, // Store the username of the user who deleted the transaction
+      updatedBy:  [
+        {
+          username: { type: String }, // Username of the user who updated the transaction
+          updatedAt: { type: Date, default: Date.now }, // Timestamp of the update
+        },
+      ],
+      updateCount: { type: Number, default: 0 }, // Track how many times the transaction was updated
     },{ timestamps: true }
   ],
 }, 

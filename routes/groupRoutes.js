@@ -305,5 +305,100 @@ router.delete('/:groupId/transactions/:transactionId', authMiddleware, async (re
   }
 });
 
+router.put('/:groupId/transactions/:transactionId', authMiddleware, async (req, res) => {
+  const { groupId, transactionId } = req.params;
+  const { amount, description, paidBy, splitsTo, paidAmounts, splitAmounts, paidWay, splitsWay, updatedMembers } = req.body;
+  const updatedBy = req.user.username; // Get the username of the user who updated the transaction
+
+  try {
+    const group = await Group.findById(groupId);
+
+    if (!group) {
+      return res.status(404).json({ message: 'Group not found' });
+    }
+
+    const transaction = group.transactions.id(transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Step 1: Revert previous balances before applying new updates
+    // Revert previous balances before applying new updates
+    transaction.paidBy.forEach((memberId) => {
+      const member = group.members.find((m) => m.user._id.toString() === memberId.toString());
+      if (member) {
+        member.balance -= transaction.paidAmounts.get(memberId.toString()) || 0; // Revert paid amount
+      }
+    });
+
+    transaction.splitsTo.forEach((memberId) => {
+      const member = group.members.find((m) => m.user._id.toString() === memberId.toString());
+      if (member) {
+        member.balance += transaction.splitAmounts.get(memberId.toString()) || 0; // Revert split amount
+      }
+    });
+
+    // Step 2: Update transaction details
+    // Update transaction details
+    transaction.amount = amount;
+    transaction.description = description;
+    transaction.paidBy = paidBy;
+    transaction.splitsTo = splitsTo;
+    transaction.paidAmounts = paidAmounts;
+    transaction.splitAmounts = splitAmounts;
+    transaction.paidWay = paidWay;
+    transaction.splitsWay = splitsWay;
+    transaction.updatedBy.push({ username: updatedBy, updatedAt: new Date() }); // Track who updated the transaction
+    transaction.updateCount += 1; // Increment update count
+
+    // Update member balances
+    // updatedMembers.forEach((updatedMember) => {
+    //   const member = group.members.find((m) => m.user._id.toString() === updatedMember.user._id.toString());
+    //   if (member) {
+    //     member.balance = updatedMember.balance;
+    //   }
+    // });
+
+    // Step 3: Update member balances based on the new transaction details
+    // Apply new transaction balances
+    Object.keys(paidAmounts).forEach((memberId) => {
+      const member = group.members.find((m) => m.user._id.toString() === memberId);
+      if (member) {
+        member.balance += paidAmounts[memberId];
+      }
+    });
+
+    Object.keys(splitAmounts).forEach((memberId) => {
+      const member = group.members.find((m) => m.user._id.toString() === memberId);
+      if (member) {
+        member.balance -= splitAmounts[memberId];
+      }
+    });
+
+    // transaction.updatedBy.push({ username: updatedBy, updatedAt: new Date() });
+
+    // Save the updated group
+    await group.save();
+
+    // Step 4: Populate the updated transaction before emitting
+    // Populate the updated transaction before emitting
+    const populatedTransaction = await Group.populate(group, {
+      path: 'transactions.transPerson transactions.paidBy transactions.splitsTo',
+    });
+
+    const updatedTransaction = populatedTransaction.transactions.find((t) => t._id.toString() === transactionId);
+
+    // Step 5: Emit a WebSocket event to notify clients about the updated transaction
+    // Emit a WebSocket event to notify clients about the updated transaction
+    const io = req.app.get('io');
+    io.to(groupId).emit('transactionUpdated', updatedTransaction);
+
+    res.status(200).json({ message: 'Transaction updated successfully', transaction: updatedTransaction });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating transaction', error });
+  }
+});
+
 
 module.exports = router;
