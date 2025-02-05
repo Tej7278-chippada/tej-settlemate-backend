@@ -183,7 +183,7 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
   const { amount, description, paidBy, splitsTo, transPerson, paidAmounts, splitAmounts, paidWay, splitsWay, updatedMembers } = req.body;
 
   try {
-    const group = await Group.findById(groupId);
+    const group = await Group.findById(groupId).populate('members.user');
 
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
@@ -220,11 +220,29 @@ router.post('/:groupId/transactions', authMiddleware, async (req, res) => {
     // Populate the transaction data before emitting
     const populatedTransaction = await Group.populate(group, {
       path: 'transactions.transPerson transactions.paidBy transactions.splitsTo',
-      // select: 'username profilePic', // Select only the required fields
+      select: 'username profilePic', // Select only the required fields
     });
 
-    const latestTransaction = populatedTransaction.transactions[populatedTransaction.transactions.length - 1];
+    let latestTransaction = populatedTransaction.transactions[populatedTransaction.transactions.length - 1];
 
+    // Convert profilePic to base64 string
+    if (latestTransaction.transPerson?.profilePic) {
+      latestTransaction = {
+        ...latestTransaction.toObject(),
+        transPerson: {
+          ...latestTransaction.transPerson.toObject(),
+          profilePic: latestTransaction.transPerson.profilePic.toString('base64'),
+        },
+      };
+    }
+
+    // ✅ Make sure paidAmounts and splitAmounts are correctly structured in the emitted event
+    latestTransaction = {
+      ...latestTransaction,
+      paidAmounts: paidAmounts || [],
+      splitAmounts: splitAmounts || [],
+    };
+    
     // Convert profilePic to base64 for transPerson, paidBy, and splitsTo
     // if (latestTransaction.transPerson.profilePic) {
     //   latestTransaction.transPerson.profilePic = latestTransaction.transPerson.profilePic.toString('base64');
