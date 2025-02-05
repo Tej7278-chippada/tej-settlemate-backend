@@ -403,10 +403,29 @@ router.put('/:groupId/transactions/:transactionId', authMiddleware, async (req, 
     // Populate the updated transaction before emitting
     const populatedTransaction = await Group.populate(group, {
       path: 'transactions.transPerson transactions.paidBy transactions.splitsTo',
+      select: 'username profilePic', // Select only the required fields
     });
 
-    const updatedTransaction = populatedTransaction.transactions.find((t) => t._id.toString() === transactionId);
+    let updatedTransaction = populatedTransaction.transactions.find((t) => t._id.toString() === transactionId);
 
+
+    // Convert profilePic to base64 string
+    if (updatedTransaction.transPerson?.profilePic) {
+      updatedTransaction = {
+        ...updatedTransaction.toObject(),
+        transPerson: {
+          ...updatedTransaction.transPerson.toObject(),
+          profilePic: updatedTransaction.transPerson.profilePic.toString('base64'),
+        },
+      };
+    }
+
+    // ✅ Make sure paidAmounts and splitAmounts are correctly structured in the emitted event
+    updatedTransaction = {
+      ...updatedTransaction,
+      paidAmounts: paidAmounts || [],
+      splitAmounts: splitAmounts || [],
+    };
     // Step 5: Emit a WebSocket event to notify clients about the updated transaction
     // Emit a WebSocket event to notify clients about the updated transaction
     const io = req.app.get('io');
