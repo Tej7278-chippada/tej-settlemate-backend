@@ -68,7 +68,8 @@ router.get('/:groupId', authMiddleware, async (req, res) => {
     .populate('members.user', ) // Populate member user details
     .populate('transactions.transPerson',) // Populate transaction person details
     .populate('transactions.paidBy',) // Populate paidBy user details
-    .populate('transactions.splitsTo', ); // 'username' // 'username profilePic' // Populate splitsTo user details
+    .populate('transactions.splitsTo', )
+    .populate('logs.user',); // 'username' // 'username profilePic' // Populate splitsTo user details
 
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
@@ -130,22 +131,39 @@ router.delete('/:groupId', authMiddleware, async (req, res) => {
   }
 });
 
-// Remove Member from Group
+// Remove Member from Group by Admin
 router.post('/:groupId/remove-member', authMiddleware, async (req, res) => {
   const { memberId } = req.body;
 
   try {
-    const group = await Group.findById(req.params.groupId);
+    const group = await Group.findById(req.params.groupId).populate('members.user', 'username balance');
     if (!group) return res.status(404).json({ message: 'Group not found' });
 
     // Check if the requesting user is an Admin
     const requestingUser = group.members.find(
-      (member) => member.user.toString() === req.user.id && member.role === 'Admin'
+      (member) => member.user._id.toString() === req.user.id && member.role === 'Admin'
     );
     if (!requestingUser) return res.status(403).json({ message: 'Only Admins can remove members.' });
 
+    // Find the member being removed
+    const removedMember = group.members.find((member) => member.user._id.toString() === memberId);
+    if (!removedMember) return res.status(404).json({ message: 'Member not found in the group.' });
+
+    const removedUsername = removedMember.user.username;
+    const removedBalance = removedMember.balance;
+
     // Remove the member
-    group.members = group.members.filter((member) => member.user.toString() !== memberId);
+    group.members = group.members.filter((member) => member.user._id.toString() !== memberId);
+
+    // Log the member leaving
+    group.logs.push({
+      type: 'member_removed',
+      user: memberId,
+      username: removedUsername, // Store the removed member's username
+      description: `${removedUsername} removed from the group by admin ${req.user.username}.`,
+      balance: removedBalance, // Store the removed member's balance // Log the balance at the time of leaving
+    });
+
     await group.save();
 
     // Update the user's groups array
@@ -160,12 +178,33 @@ router.post('/:groupId/remove-member', authMiddleware, async (req, res) => {
 
 // Exit Group by member
 router.post('/:groupId/exit', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
   try {
     const group = await Group.findById(req.params.groupId);
     if (!group) return res.status(404).json({ message: 'Group not found' });
 
     // Remove the user from the group's members array
-    group.members = group.members.filter((member) => member.user.toString() !== req.user.id);
+    // group.members = group.members.filter((member) => member.user.toString() !== req.user.id);
+
+    const memberIndex = group.members.findIndex((member) => member.user.toString() === userId);
+
+    if (memberIndex === -1) {
+      return res.status(400).json({ message: 'User is not a member of the group' });
+    }
+
+    const member = group.members[memberIndex];
+    
+    // Log the member leaving
+    group.logs.push({
+      type: 'member_left',
+      user: userId,
+      username: req.user.username,
+      description: `${req.user.username} left the group.`,
+      balance: member.balance, // Log the balance at the time of leaving
+    });
+
+    group.members.splice(memberIndex, 1);
+
     await group.save();
 
     // Remove the groupId from the user's groups array
@@ -310,6 +349,15 @@ router.delete('/:groupId/transactions/:transactionId', authMiddleware, async (re
       }
     });
 
+    // Log the transaction deletion
+    group.logs.push({
+      type: 'transaction_deleted',
+      user: req.user.id,
+      username: deletedBy,
+      transactionId: transactionId,
+      description: `${deletedBy} deleted the transaction: ${transaction.description}.`,
+    });
+
     // group.transactions.pull(transactionId);
     await group.save();
 
@@ -392,6 +440,15 @@ router.put('/:groupId/transactions/:transactionId', authMiddleware, async (req, 
       if (member) {
         member.balance -= splitAmounts[memberId];
       }
+    });
+
+    // Log the transaction update
+    group.logs.push({
+      type: 'transaction_updated',
+      user: req.user.id,
+      username: updatedBy,
+      transactionId: transactionId,
+      description: `${updatedBy} updated the transaction: ${transaction.description}.`,
     });
 
     // transaction.updatedBy.push({ username: updatedBy, updatedAt: new Date() });

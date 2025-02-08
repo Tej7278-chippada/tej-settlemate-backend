@@ -50,6 +50,15 @@ exports.joinGroup = async (req, res) => {
 
     // Add user to the group
     group.members.push({ user: userId, role: 'Member' });
+
+    // Log the member joining
+    group.logs.push({
+      type: 'member_joined',
+      user: userId,
+      username: req.user.username,
+      description: `${req.user.username} joined the group.`,
+    });
+    
     await group.save();
 
     // Add group ID to user's groups array

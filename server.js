@@ -63,6 +63,11 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} joined group room: ${groupId}`);
   });
 
+  // Handle log updates
+  socket.on('updateLogs', (groupId, log) => {
+    io.to(groupId).emit('newLog', log); // Emit the new log to all clients in the group
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     console.log('A user disconnected:', socket.id);

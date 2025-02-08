@@ -39,6 +39,17 @@ const groupSchema = new mongoose.Schema({
       updateCount: { type: Number, default: 0 }, // Track how many times the transaction was updated
     },{ timestamps: true }
   ],
+  logs: [
+    {
+      type: { type: String, required: true }, // Type of log (e.g., 'member_joined', 'member_left', 'transaction_deleted', 'transaction_updated')
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // User who performed the action
+      username: { type: String }, // Username of the user who performed the action
+      transactionId: { type: mongoose.Schema.Types.ObjectId }, // Transaction ID (if applicable)
+      description: { type: String }, // Description of the log
+      balance: { type: Number }, // Balance of the user at the time of leaving (if applicable)
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
 }, 
   { timestamps: true }
 );
