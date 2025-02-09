@@ -78,4 +78,4 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 const PORT = process.env.PORT || 5010;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port http://192.168.54.172:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port http://192.168.54.172:${PORT}`));
