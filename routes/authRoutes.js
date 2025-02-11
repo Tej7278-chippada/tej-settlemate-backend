@@ -95,38 +95,42 @@ router.post('/register', upload.single('profilePic'), async (req, res) => {
   }
 });
 
+// Function to validate if the input is an email
+// const isValidEmail = (input) => {
+//   return /^[\w-]+(\.[\w-]+)*@[a-zA-Z\d-]+(\.[a-zA-Z\d-]+)*(\.[a-zA-Z]{2,})$/.test(input);
+// };
 
 // Login Route
 router.post('/login', async (req, res) => {
-  const { identifier, password } = req.body; // Use "identifier" to accept either email or username
+  const { identifier, password, isEmail } = req.body; // Use "identifier" to accept either email or username
 
   try {
-    // Determine if identifier is an email or username
-    const query = identifier.includes('@') ? { email: identifier } : { username: identifier };
+    // Use regex to determine if the identifier is an email
+    const query = isEmail  ? { email: identifier } : { username: identifier };
 
     // Find user by either username or email
     const user = await User.findOne(query);
     if (!user) {
-      return res.status(404).json({ message: `${identifier.includes('@') ? 'Email' : 'Username'} ${identifier} doesn't exist.` });
+      return res.status(404).json({ message: `${isEmail  ? 'Email' : 'Username'} ${identifier} doesn't exist.` });
     }
 
     // Compare the provided password with the hashed password stored in the database
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
-      return res.status(401).json({ message: `Entered password doesn't match to ${identifier.includes('@') ? 'Email' : 'Username'} ${identifier} 's data.` });
+      return res.status(401).json({ message: `Entered password doesn't match to ${isEmail  ? 'Email' : 'Username'} ${identifier} 's data.` });
     }
 
     // Generate a JWT token valid for a specified period
     const authToken = jwt.sign({ id: user._id, tokenUsername: user.username }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     });
-    console.log('Login successful:', user); // Log successful login
-    console.log('Login successful:', authToken);
+    // console.log('Login successful:', user); // Log successful login
+    // console.log('Login successful:', authToken);
     
 
     // Respond with success message, token, and username
     return res.status(200).json({
-      message: `You are logged in with ${identifier.includes('@') ? 'email' : 'username'}: ${identifier}`,
+      message: `You are logged in with ${isEmail  ? 'email' : 'username'}: ${identifier}`,
       authToken,
       tokenUsername: user.username,
       userId: user._id, // for returning user details
