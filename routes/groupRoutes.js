@@ -155,6 +155,13 @@ router.post('/:groupId/remove-member', authMiddleware, async (req, res) => {
     // Remove the member
     group.members = group.members.filter((member) => member.user._id.toString() !== memberId);
 
+    // Add user to pastMembers with their balance
+    group.pastMembers.push({
+      user: memberId,
+      balance: removedBalance,
+      leftAt: Date.now(),
+    });
+
     // Log the member leaving
     group.logs.push({
       type: 'member_removed',
@@ -172,6 +179,54 @@ router.post('/:groupId/remove-member', authMiddleware, async (req, res) => {
     res.status(200).json({ message: 'Member removed successfully.' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to remove member.', error });
+  }
+});
+
+// Check if user is a past member of the group
+router.post('/check-past-member', authMiddleware, async (req, res) => {
+  const { joinCode } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Find the group by join code
+    const group = await Group.findOne({ joinCode });
+
+    if (!group) {
+      return res.status(404).json({ message: 'Invalid join code' });
+    }
+
+    if (Date.now() > group.joinCodeExpiry) {
+      return res.status(400).json({ message: 'Join code has expired' });
+    }
+
+    // Check if the user is already a member of the group
+    const isCurrentMember = group.members.some((member) => member.user.toString() === userId);
+    if (isCurrentMember) {
+      return res.status(400).json({ message: 'You are already a member of this group' });
+    }
+
+    // Check if the user is a past member of the group
+    const pastMember = group.pastMembers.find((member) => member.user.toString() === userId);
+
+    if (pastMember) {
+      // User is a past member, return their previous balance
+      return res.status(200).json({
+        isPastMember: true,
+        balance: pastMember.balance,
+        group: {
+          _id: group._id,
+          groupName: group.groupName,
+        },
+      });
+    } else {
+      // User is not a past member
+      return res.status(200).json({
+        isPastMember: false,
+      });
+    }
+  } catch (error) {
+    console.error('Error checking past membership:', error);
+    res.status(500).json({ message: 'Error checking past membership', error });
   }
 });
 
@@ -193,6 +248,13 @@ router.post('/:groupId/exit', authMiddleware, async (req, res) => {
     }
 
     const member = group.members[memberIndex];
+
+    // Add user to pastMembers with their balance
+    group.pastMembers.push({
+      user: userId,
+      balance: member.balance,
+      leftAt: Date.now(),
+    });
     
     // Log the member leaving
     group.logs.push({

@@ -50,6 +50,13 @@ const groupSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
+  pastMembers: [
+    {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      balance: { type: Number },
+      leftAt: { type: Date, default: Date.now },
+    },
+  ],
 }, 
   { timestamps: true }
 );

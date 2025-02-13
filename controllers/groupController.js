@@ -29,7 +29,7 @@ const User = require('../models/userModel');
 
 // Join a Group
 exports.joinGroup = async (req, res) => {
-  const { joinCode } = req.body;
+  const { joinCode, usePreviousBalance } = req.body;
   const userId = req.user.id;
 
   try {
@@ -48,8 +48,17 @@ exports.joinGroup = async (req, res) => {
       return res.status(400).json({ message: 'You are already a member of this group' });
     }
 
+    // Check if user is a past member
+    const pastMember = group.pastMembers.find((member) => member.user.toString() === userId);
+
+    let balance = 0;
+    if (pastMember && usePreviousBalance) {
+      balance = pastMember.balance; // Assign the previous balance
+      
+    }
+
     // Add user to the group
-    group.members.push({ user: userId, role: 'Member' });
+    group.members.push({ user: userId, role: 'Member', balance });
 
     // Log the member joining
     group.logs.push({
@@ -58,6 +67,9 @@ exports.joinGroup = async (req, res) => {
       username: req.user.username,
       description: `${req.user.username} joined the group.`,
     });
+
+    // Remove the user from pastMembers
+    group.pastMembers = group.pastMembers.filter((member) => member.user.toString() !== userId);
     
     await group.save();
 
